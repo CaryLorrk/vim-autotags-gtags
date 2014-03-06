@@ -314,7 +314,6 @@ fun! s:AutotagsLoad(tagsdir)
     if filereadable(l:gtagsfile)
         let $GTAGSROOT = getcwd()
         let $GTAGSDBPATH = a:tagsdir
-        echomsg "cs add " . l:gtagsfile
         exe "cs add " . l:gtagsfile
     endif
 endfun
