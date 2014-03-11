@@ -1,13 +1,13 @@
 " vim: set sw=4 sts=4 et ft=vim :
 " Script:           autotags.vim
-" Author:           Cary Wu <carylorrk@gmail.com> Origin: Basil Gor <basil.gor at gmail.com>
+" Author:           Cary Wu<carylorrk@gmail.com> Origin:Basil Gor <basil.gor at gmail.com>
 " Homepage:         http://github.com/carywu/vim-autotags
-" Version:          1.0 (03 March 2014)
+" Version:          1.0 (3 March 2014)
 " License:          Redistribute under the same terms as Vim itself
-" Purpose:          ctags and gtags tags handling
+" Purpose:          ctags and cscope(GNU global) tags handling
 " Documentation:
-"   This script is a wrapper for ctags and gtags, so tags for all languages
-"   supported by ctags and gtags can be build.
+"   This script is a wrapper for ctags and cscope(global), so tags for all languages
+"   supported by ctags and GNU global can be build (cscope is additionally used for C/C++).
 "
 "   Put autotags.vim in your ~/.vim/plugin directory, open source code and
 "   press F4 (map AutotagsUpdate to change it).
@@ -18,8 +18,8 @@
 "   project or library code you want to navigate to) press F3 (or map
 "   AutotagsAdd).
 "
-"   Script builds and loads ctags and gtags databases via a single command.
-"   All ctags and gtags files are stored in separate directory ~/.autotags by
+"   Script builds and loads ctags and cscope databases via a single command.
+"   All ctags and cscope(global) files are stored in separate directory ~/.autotags by
 "   default. You can set it via
 "       let g:autotagsdir = $HOME."/boo"
 "
@@ -28,7 +28,7 @@
 "   tree are opened (if path contains project root).
 "
 "   Exact tags location:
-"   ~/.autotags/byhash/<source dir name hash>/<ctags and gtags files>
+"   ~/.autotags/byhash/<source dir name hash>/<ctags and cscope(global) files>
 "
 "   Also `origin` symlink points back to source dir
 "   ~/.autotags/byhash/<source dir name hash>/origin
@@ -57,7 +57,14 @@
 "   set to 1 to avoid generating global tags for /usr/include
 "   let g:autotags_no_global = 0
 "   let g:autotags_ctags_global_include = "/usr/include/*"
-"   let g:autotags_gtags_exe = "gtags"
+"   let g:autotags_cscope_or_gtags = "cscope"
+"   let g:autotags_cscope_exe = "cscope"
+"   let g:autotags_cscope_file_extensions = ".cpp .cc .cxx .m .hpp .hh .h .hxx .c .idl"
+"
+"   use gtags
+"   let g:autotags_cscope_or_gtags = "gtags"
+"   let g:autotags_cscope_exe = "gtags"
+"   let g:autotags_global_exe = "global"
 "
 " Public Interface:
 "   AutotagsUpdate()            build/rebuild tags (mapped to F4 by default)
@@ -77,8 +84,9 @@
 "   EOF
 "
 " Dependencies:
-"   ctags and gtags
+"   ctags and cscope(global)
 "   md5sum
+"   cscope_maps.vim plugin is recommended
 "
 
 if exists("g:loaded_autotags") || &cp
@@ -146,19 +154,23 @@ fun! s:AutotagsInit()
             \ "/usr/include/asm/* /usr/include/asm-generic/* /usr/include/linux/*"
     endif
 
-    if !exists("g:autotags_gtags_exe")
-        let g:autotags_gtags_exe = "gtags"
+    if !exists("g:autotags_cscope_exe")
+        let g:autotags_cscope_exe = "cscope"
     endif
 
-    if !exists("g:autotags_gtags_language_map")
-        let g:autotags_gtags_language_map = "c:.c.h,yacc:.y,asm:.s.S,java:.java,cpp:.c++.cc.cpp.cxx.hxx.hpp.C.H,php:.php.php3.phtml"
+    if !exists("g:autotags_global_exe")
+        let g:autotags_global_exe = "global"
     endif
 
-    if !exists("g:autotags_gtags_file_extensions")
-        let g:autotags_gtags_file_extensions = ".c .h .y .s .S .java .c++ .cc .cpp .cxx .hxx .hpp .C .H .php .php3 .phtml"
+    if !exists("g:autotags_cscope_or_gtags")
+        let g:autotags_cscope_or_gtags = "cscope"
     endif
 
-    let s:gtags_file_pattern = '.*\' . join(split(g:autotags_gtags_file_extensions, " "), '\|.*\')
+    if !exists("g:autotags_cscope_file_extensions")
+        let g:autotags_cscope_file_extensions = ".cpp .cc .cxx .m .hpp .hh .h .hxx .c .idl"
+    endif
+
+    let s:cscope_file_pattern = '.*\' . join(split(g:autotags_cscope_file_extensions, " "), '\|.*\')
 
     call s:AutotagsCleanup()
 
@@ -197,11 +209,19 @@ fun! s:AutotagsSearchLoadTags()
         echomsg "found local ctags file: " . l:ctagsfile
     endif
 
-    " search gtags in current tree
-    if filereadable(findfile("GTAGS", ".;"))
-        let l:gtagsfile = findfile("GTAGS", ".;")
-        "exe "cs add " . l:gtagsfile
-        "echomsg "found local gtags file: " . l:gtagsfile
+    " search cscope db in current tree
+    if g:autotags_cscope_or_gtags == "cscope"
+        if filereadable(findfile("cscope.out", ".;"))
+            let l:cscopedb = findfile("cscope.out", ".;")
+            exe "cs add " . l:cscopedb
+            echomsg "found local cscopedb file: " . l:cscopedb
+        endif
+    else
+        if filereadable(findfile("GTAGS", ".;"))
+            let l:gtagsfile = findfile("GTAGS", ".;")
+            "exe "cs add " . l:gtagsfile
+            "echomsg "found local gtags file: " . l:gtagsfile
+        endif
     endif
 endfun
 
@@ -278,9 +298,23 @@ fun! s:AutotagsGenerate(sourcedir, tagsdir)
         \ "' '--langmap=" . g:autotags_ctags_langmap .
         \ "' -f '" . l:ctagsfile . "' '" . a:sourcedir ."'")
 
-    let l:gtagsdir = a:tagsdir
-    echomsg "updating gtags in " . l:gtagsdir ." for " . a:sourcedir
-    echomsg system("nice -15 " . g:autotags_gtags_exe . " -i " . l:gtagsdir)
+    if g:autotags_cscope_or_gtags == "cscope"
+        let l:cscopedir = a:tagsdir
+        echomsg "updating cscopedb in " . l:cscopedir ." for " . a:sourcedir
+        echomsg system("cd '" . l:cscopedir . "' && nice -15 find '" . a:sourcedir . "' " .
+            \ "-not -regex '.*\\.git.*' -regex '" . s:cscope_file_pattern . "' -fprint cscope.files")
+        if getfsize(l:cscopedir . "/cscope.files") > 0
+            echomsg system("cd '" . l:cscopedir . "' && nice -15 " . g:autotags_cscope_exe . " -b -q")
+        endif
+    else
+        let l:gtagsdir = a:tagsdir
+        echomsg "updating gtags in " . l:gtagsdir ." for " . a:sourcedir
+        if filereadable(findfile("GTAGS", l:gtagsdir))
+            echomsg system("nice -15 " . g:autotags_global_exe . " -u")
+        else
+            echomsg system("nice -15 " . g:autotags_cscope_exe . " " . l:gtagsdir)
+        endif
+    endif
 endfun
 
 fun! s:AutotagsReload(tagsdir)
@@ -310,11 +344,18 @@ fun! s:AutotagsLoad(tagsdir)
         exe "set tags+=" . l:ctagsfile
     endif
 
-    let l:gtagsfile = a:tagsdir . "/GTAGS"
-    if filereadable(l:gtagsfile)
-        let $GTAGSROOT = getcwd()
-        let $GTAGSDBPATH = a:tagsdir
-        exe "cs add " . l:gtagsfile
+    if g:autotags_cscope_or_gtags == "cscope"
+        let l:cscopedb = a:tagsdir . "/cscope.out"
+        if filereadable(l:cscopedb)
+            exe "cs add " . l:cscopedb
+        endif
+    else
+        let l:gtagsfile = a:tagsdir . "/GTAGS"
+        if filereadable(l:gtagsfile)
+            let $GTAGSROOT = getcwd()
+            let $GTAGSDBPATH = a:tagsdir
+            exe "cs add " . l:gtagsfile
+        endif
     endif
 endfun
 
