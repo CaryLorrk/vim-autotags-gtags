@@ -10,12 +10,12 @@
 "   supported by ctags and GNU global can be build (cscope is additionally used for C/C++).
 "
 "   Put autotags.vim in your ~/.vim/plugin directory, open source code and
-"   press F4 (map AutotagsUpdate to change it).
+"   press <Leader>4 (map AutotagsUpdate to change it).
 "
-"   You can reindex sources by pressing F4 again.
+"   You can reindex sources by pressing <Leader>4 again.
 "
 "   To build and load additional tags for another directory (i.e. external
-"   project or library code you want to navigate to) press F3 (or map
+"   project or library code you want to navigate to) press <Leader>3 (or map
 "   AutotagsAdd).
 "
 "   Script builds and loads ctags and cscope databases via a single command.
@@ -67,11 +67,11 @@
 "   let g:autotags_global_exe = "global"
 "
 " Public Interface:
-"   AutotagsUpdate()            build/rebuild tags (mapped to F4 by default)
+"   AutotagsUpdate()            build/rebuild tags (mapped to <Leader>4 by default)
 "   AutotagsAdd()               build and load additional tags for another directory
 "   AutotagsRemove()            remove currently used tags
 "
-"   AutotagsUpdatePath(path)    build/rebuild tags (mapped to F4 by default)
+"   AutotagsUpdatePath(path)    build/rebuild tags (mapped to <Leader>3 by default)
 "   AutotagsAddPath(path)       build and load additional tags for another directory
 "
 "   Last two calls can be used to generate tags from batch mode, i.e.:
@@ -99,11 +99,11 @@ set cpo&vim
 " Global Maps:
 "
 if !hasmapto('AutotagsUpdate')
-    map <F4> :call AutotagsUpdate()<CR>
+    map <Leader>4 :call AutotagsUpdate()<CR>
 endif
 
 if !hasmapto('AutotagsAdd')
-    map <F3> :call AutotagsAdd()<CR>
+    map <Leader>3 :call AutotagsAdd()<CR>
 endif
 
 fun! s:PathHash(val)
